@@ -1,4 +1,4 @@
-name: 読みたい本DB 表紙画像自動入力
+name: 読みたい本・漫画DB 表紙画像自動入力
 
 on:
   schedule:
@@ -30,6 +30,7 @@ jobs:
         env:
           NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
           NOTION_DB_BOOK: ${{ secrets.NOTION_DB_BOOK }}
+          NOTION_DB_MANGA: ${{ secrets.NOTION_DB_MANGA }}
         run: python3 cover_book.py
       
       - name: 実行ログを表示（失敗時）
