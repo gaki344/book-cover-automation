@@ -109,19 +109,25 @@ def fetch_pages_from_db(database_id: str) -> list:
     """
     results = []
     cursor = None
+    # database_id をハイフンなしに正規化
+    normalized_db_id = database_id.replace("-", "")
     
     while True:
-        kwargs = {"database_id": database_id}
-        if cursor:
-            kwargs["start_cursor"] = cursor
-        
-        res = notion.databases.query(**kwargs)
-        results.extend(res.get("results", []))
-        
-        if not res.get("has_more"):
+        try:
+            kwargs = {"database_id": normalized_db_id}
+            if cursor:
+                kwargs["start_cursor"] = cursor
+            
+            res = notion.databases.query(**kwargs)
+            results.extend(res.get("results", []))
+            
+            if not res.get("has_more"):
+                break
+            cursor = res.get("next_cursor")
+            time.sleep(0.3)
+        except Exception as e:
+            print(f"[エラー] DB 取得に失敗: {e}")
             break
-        cursor = res.get("next_cursor")
-        time.sleep(0.3)
     
     return results
 
