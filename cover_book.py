@@ -47,7 +47,7 @@ if not DB_BOOK_ID and not DB_MANGA_ID:
 # DB定義：(DATABASE_ID, DB名, タイトルプロパティ名)
 DATABASES = []
 if DB_BOOK_ID:
-    DATABASES.append((DB_BOOK_ID, "読みたい本DB", "書名"))
+    DATABASES.append((DB_BOOK_ID, "読みたい本DB", "タイトル"))
 if DB_MANGA_ID:
     DATABASES.append((DB_MANGA_ID, "読みたい漫画DB", "タイトル"))
 
@@ -106,6 +106,7 @@ def get_cover_url(asin: str) -> Optional[str]:
 def fetch_pages_from_db(database_id: str) -> list:
     """
     指定DBの全レコードを取得（ページネーション対応）
+    Notion search API を使用（databases.query の代替）
     """
     results = []
     cursor = None
@@ -114,12 +115,24 @@ def fetch_pages_from_db(database_id: str) -> list:
     
     while True:
         try:
-            kwargs = {"database_id": normalized_db_id}
+            payload = {
+                "filter": {
+                    "property": "object",
+                    "value": "page"
+                }
+            }
             if cursor:
-                kwargs["start_cursor"] = cursor
+                payload["start_cursor"] = cursor
             
-            res = notion.databases.query(**kwargs)
-            results.extend(res.get("results", []))
+            # search API を使用してDB内のページを取得
+            res = notion.search(**payload)
+            
+            # 対象DB に属するページをフィルタ
+            for page in res.get("results", []):
+                parent = page.get("parent", {})
+                db_id = parent.get("database_id", "").replace("-", "")
+                if db_id == normalized_db_id:
+                    results.append(page)
             
             if not res.get("has_more"):
                 break
@@ -186,13 +199,18 @@ def main():
                 skip_count += 1
                 continue
             
-            # ISBN から Amazon URL を検索・構築
-            isbn = props.get("ISBN", {}).get("rich_text", [])
-            isbn_text = isbn[0]["plain_text"] if isbn else ""
+            # 1️⃣ Amazon URL があればそれを使用
+            amazon_url = props.get("Amazon URL", {}).get("url", "")
             
-            amazon_url = search_amazon_url_by_isbn(isbn_text)
+            # 2️⃣ Amazon URL がなければ ISBN から構築
             if not amazon_url:
-                print(f"  [SKIP] {title}（ISBNなし or 形式不正）")
+                isbn = props.get("ISBN", {}).get("rich_text", [])
+                isbn_text = isbn[0]["plain_text"] if isbn else ""
+                amazon_url = search_amazon_url_by_isbn(isbn_text)
+            
+            # 3️⃣ どちらもなければスキップ
+            if not amazon_url:
+                print(f"  [SKIP] {title}（Amazon URLとISBNなし）")
                 skip_count += 1
                 continue
             
