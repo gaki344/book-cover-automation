@@ -1,15 +1,16 @@
 # 📚 book-cover-automation
 
-ISBN から Amazon の表紙画像を自動取得して、Notion の「読みたい本」「読みたい漫画」など複数DB に自動入力するツールです。
+Amazon URL から表紙画像を自動取得して、Notion の「読みたい本」「読みたい漫画」など複数DB に自動入力するツールです。
 
 毎週月曜 09:00 JST に GitHub Actions で自動実行されます。
+
+Amazon URL は前段の [amazon-url-finder](https://github.com/gaki344/amazon-url-finder)（毎週月曜 08:00 JST 実行）がタイトルから自動検索して埋める前提です。手動で Amazon URL を入力しても構いません。
 
 ---
 
 ## 📋 機能
 
 - ✅ Notion DB から複数の本・漫画DBを全件取得
-- ✅ **ISBN から Amazon URL を自動構築**（新機能）
 - ✅ Amazon URL から ASIN を抽出
 - ✅ Amazon から表紙画像 URL を構築
 - ✅ Notion の「表紙」プロパティ（Files型）に自動入力
@@ -89,7 +90,7 @@ python3 cover_book.py
 
   [OK]   藍色炎舞
   [SKIP] プロレタリア文学（表紙あり）
-  [SKIP] 世界大百科事典（ISBNなし or 形式不正）
+  [SKIP] 世界大百科事典（Amazon URLなし）
   [OK]   思想の生活と死
 
   --- 読みたい本DB の結果 ---
@@ -132,8 +133,7 @@ Notionを開いて表紙が表示されているか確認してください！
 ### Q: 一部の本の表紙が入らない
 
 **A:** 以下を確認：
-- Notion に **ISBN** が入力されているか
-- ISBN が 10 ~ 13 桁の数字か（ハイフンは削除される）
+- Notion に **Amazon URL** が入力されているか（未入力なら [amazon-url-finder](https://github.com/gaki344/amazon-url-finder) の実行を待つか、手動で入力）
 - Amazon から画像が取得できるか（手動で URL アクセス）
 
 ### Q: Notion に「トークンが無効」と出た
@@ -150,7 +150,7 @@ Notionを開いて表紙が表示されているか確認してください！
 ```python
 DATABASES = []
 if DB_BOOK_ID:
-    DATABASES.append((DB_BOOK_ID, "読みたい本DB", "書名"))
+    DATABASES.append((DB_BOOK_ID, "読みたい本DB", "タイトル"))
 if DB_MANGA_ID:
     DATABASES.append((DB_MANGA_ID, "読みたい漫画DB", "タイトル"))
 ```
@@ -181,8 +181,8 @@ book-cover-automation/
 
 | プロパティ名 | 型 | 説明 |
 |---|---|---|
-| `書名` / `タイトル` | Title | 本・漫画のタイトル |
-| `ISBN` | Rich text | 書籍の ISBN |
+| `タイトル` | Title | 本・漫画のタイトル |
+| `Amazon URL` | URL | Amazon商品ページURL（[amazon-url-finder](https://github.com/gaki344/amazon-url-finder) が自動入力、または手動入力） |
 | `表紙` | Files | 表紙画像（自動入力） |
 
 ---

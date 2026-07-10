@@ -2,14 +2,16 @@
 cover_book.py
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 読みたい本DB・読みたい漫画DB の全レコードを対象に、
-ISBN → Amazon URL → ASIN → Amazon画像URL を自動構築し
+Amazon URL → ASIN → Amazon画像URL を自動構築し
 Notion の「表紙」プロパティ（Files型）に書き込む。
 
+Amazon URL は前段の amazon-url-finder リポジトリが
+タイトルから自動検索して埋める前提（毎週月曜08:00実行 → 本スクリプトは09:00実行）。
+
 【処理フロー】
-1. ISBN から Amazon URL を構築
-2. Amazon URL から ASIN を抽出
-3. ASIN から 画像URL を取得
-4. Notion の「表紙」に書き込み
+1. Amazon URL から ASIN を抽出
+2. ASIN から 画像URL を取得
+3. Notion の「表紙」に書き込み
 
 画像取得方式: AmazonのASINから画像URLを直接組み立て
   https://m.media-amazon.com/images/P/{ASIN}.01.LZZZZZZZ.jpg
@@ -54,24 +56,7 @@ if DB_MANGA_ID:
 notion = Client(auth=NOTION_TOKEN)
 
 
-# ── 1. ISBNからAmazon URLを構築 ──────────────────
-def search_amazon_url_by_isbn(isbn: str) -> Optional[str]:
-    """
-    ISBNからAmazon Japan URLを構築
-    ISBN-10 / ISBN-13 両対応
-    """
-    if not isbn or len(isbn) < 10:
-        return None
-    # ISBN（ハイフン削除）
-    clean_isbn = isbn.replace("-", "").strip()
-    if not clean_isbn.isdigit() or len(clean_isbn) not in [10, 13]:
-        return None
-    # Amazon Japan のURLを構築
-    url = f"https://www.amazon.co.jp/dp/{clean_isbn}"
-    return url
-
-
-# ── 2. ASINをAmazon URLから抽出 ──────────────────
+# ── 1. ASINをAmazon URLから抽出 ──────────────────
 def extract_asin(amazon_url: str) -> Optional[str]:
     """
     Amazon URL から ASIN（10桁の英数字）を抽出
@@ -82,7 +67,7 @@ def extract_asin(amazon_url: str) -> Optional[str]:
     return match.group(1) if match else None
 
 
-# ── 3. ASINからAmazon画像URLを組み立て ───────────
+# ── 2. ASINからAmazon画像URLを組み立て ───────────
 def get_cover_url(asin: str) -> Optional[str]:
     """
     AmazonはASINさえあれば画像URLが決まった形式で構築できる。
@@ -102,7 +87,7 @@ def get_cover_url(asin: str) -> Optional[str]:
     return url_fallback
 
 
-# ── 4. Notionの特定DBの全レコードを取得 ──────────
+# ── 3. Notionの特定DBの全レコードを取得 ──────────
 def fetch_pages_from_db(database_id: str) -> list:
     """
     指定DBの全レコードを取得（ページネーション対応）
@@ -145,7 +130,7 @@ def fetch_pages_from_db(database_id: str) -> list:
     return results
 
 
-# ── 5. Notionの「表紙」プロパティに画像URLを書き込む ──
+# ── 4. Notionの「表紙」プロパティに画像URLを書き込む ──
 def set_cover(page_id: str, image_url: str):
     """
     Notion ページの「表紙」プロパティに外部画像URLを設定
@@ -199,18 +184,10 @@ def main():
                 skip_count += 1
                 continue
             
-            # 1️⃣ Amazon URL があればそれを使用
+            # Amazon URL を取得
             amazon_url = props.get("Amazon URL", {}).get("url", "")
-            
-            # 2️⃣ Amazon URL がなければ ISBN から構築
             if not amazon_url:
-                isbn = props.get("ISBN", {}).get("rich_text", [])
-                isbn_text = isbn[0]["plain_text"] if isbn else ""
-                amazon_url = search_amazon_url_by_isbn(isbn_text)
-            
-            # 3️⃣ どちらもなければスキップ
-            if not amazon_url:
-                print(f"  [SKIP] {title}（Amazon URLとISBNなし）")
+                print(f"  [SKIP] {title}（Amazon URLなし）")
                 skip_count += 1
                 continue
             
