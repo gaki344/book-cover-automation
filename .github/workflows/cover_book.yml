@@ -1,0 +1,39 @@
+name: 読みたい本DB 表紙画像自動入力
+
+on:
+  schedule:
+    # 毎週月曜 09:00 JST（UTC 月曜 0:00）
+    - cron: '0 0 * * 1'
+  
+  # 手動実行用
+  workflow_dispatch:
+
+jobs:
+  fetch-covers:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: リポジトリをチェックアウト
+        uses: actions/checkout@v4
+      
+      - name: Python をセットアップ
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      
+      - name: 依存ライブラリをインストール
+        run: |
+          python -m pip install --upgrade pip
+          pip install notion-client requests
+      
+      - name: 表紙画像を自動入力
+        env:
+          NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+          NOTION_DB_BOOK: ${{ secrets.NOTION_DB_BOOK }}
+        run: python3 cover_book.py
+      
+      - name: 実行ログを表示（失敗時）
+        if: failure()
+        run: |
+          echo "❌ スクリプト実行に失敗しました"
+          echo "GitHub Actions のログを確認してください"
